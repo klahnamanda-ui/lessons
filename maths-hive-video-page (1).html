@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ============================================================
+  MATHS HIVE – VIDEO PAGE
+  Part of the Maths Hive lesson library.
+
+  TO CONFIGURE THIS PAGE, edit the CONFIG block below only.
+  ============================================================ -->
+<script>
+const CONFIG = {
+  // ── Lesson info ──────────────────────────────────────────
+  lessonTitle:  "Counting to 10",       // shown in nav bar
+  slideNumber:  1,                       // e.g. 1
+  totalSlides:  4,                       // e.g. 4
+
+  // ── This slide ───────────────────────────────────────────
+  slideTitle:   "Watch & Think",         // shown above video
+  notes:        "Watch the video carefully. How many penguins can you count?",
+
+  // ── Video ────────────────────────────────────────────────
+  // For Vimeo: paste the full Vimeo player URL
+  //   e.g. "https://player.vimeo.com/video/123456789"
+  // For YouTube: paste the full YouTube embed URL
+  //   e.g. "https://www.youtube.com/embed/dQw4w9WgXcQ"
+  videoUrl: "https://player.vimeo.com/video/1170182409?badge=0&autopause=0&player_id=0&app_id=58479",
+  videoType: "vimeo",   // "vimeo" or "youtube"
+
+  // ── Navigation ───────────────────────────────────────────
+  prevPage: "",          // filename of previous slide, e.g. "slide1.html"
+  nextPage: "",          // filename of next slide, e.g. "slide3.html"
+};
+</script>
+
+<title id="pageTitle">Maths Hive</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --purple:       #1A3057;
+    --purple-dark:  #0F1B28;
+    --purple-light: #2B4C7E;
+    --gold:         #E09A10;
+    --bg:           #FFFEF9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+
+  /* ── NAV ── */
+  .navbar {
+    background: linear-gradient(180deg, var(--purple-light), var(--purple) 60%, var(--purple-dark));
+    border-bottom: 4px solid var(--gold);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; min-height: 62px; flex-shrink: 0;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+  }
+  .nav-brand { font-family: 'Fredoka One', cursive; color: white; font-size: 1.15rem; white-space: nowrap; }
+  .nav-brand span { color: var(--gold); }
+  .nav-center { font-family: 'Fredoka One', cursive; color: rgba(255,255,255,0.75); font-size: 1rem; text-align: center; flex: 1; padding: 0 16px; }
+  .nav-right { display: flex; gap: 10px; align-items: center; }
+  .nav-counter { font-family: 'Fredoka One', cursive; color: rgba(255,255,255,0.6); font-size: .9rem; min-width: 56px; text-align: center; }
+  .nav-btn {
+    font-family: 'Fredoka One', cursive; font-size: 1rem;
+    padding: 8px 22px; border-radius: 20px;
+    border: 2px solid rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.15); color: white;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.28); }
+  .nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .nav-btn.gold { background: var(--gold); border-color: var(--gold); }
+
+  /* ── STAGE ── */
+  .stage {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px 32px; gap: 20px; overflow: hidden;
+  }
+
+  /* ── SLIDE TITLE ── */
+  .slide-title {
+    font-family: 'Fredoka One', cursive; font-size: 1.7rem;
+    color: var(--purple); letter-spacing: 1px; text-align: center;
+  }
+
+  /* ── VIDEO ── */
+  .video-outer {
+    width: 100%; max-width: 880px;
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  }
+  .video-ratio { position: relative; padding-bottom: 56.25%; background: #000; }
+  .video-ratio iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: none;
+  }
+
+  /* ── NOTES ── */
+  .notes-bar {
+    width: 100%; max-width: 880px;
+    background: white; border-radius: 14px;
+    border-left: 6px solid var(--gold);
+    padding: 14px 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .notes-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .notes-text {
+    font-family: 'Nunito', sans-serif; font-weight: 700;
+    font-size: 1rem; color: #555; line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="nav-brand">🐝 The Maths Hive &nbsp;|&nbsp; <span id="navTitle"></span></div>
+  <div class="nav-center" id="navSlideTitle"></div>
+  <div class="nav-right">
+    <span class="nav-counter" id="navCounter"></span>
+    <button class="nav-btn" id="btnPrev" onclick="goPage('prev')">◀ Back</button>
+    <button class="nav-btn gold" id="btnNext" onclick="goPage('next')">Next ▶</button>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="slide-title" id="slideTitle"></div>
+  <div class="video-outer">
+    <div class="video-ratio">
+      <iframe id="videoFrame" allowfullscreen
+        allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media"
+        referrerpolicy="strict-origin-when-cross-origin">
+      </iframe>
+    </div>
+  </div>
+  <div class="notes-bar" id="notesBar" style="display:none">
+    <div class="notes-icon">📌</div>
+    <div class="notes-text" id="notesText"></div>
+  </div>
+</div>
+
+<script>
+// ── Apply config ────────────────────────────────────────────────────────────
+document.title = CONFIG.lessonTitle + ' – ' + CONFIG.slideTitle;
+document.getElementById('navTitle').textContent      = CONFIG.lessonTitle;
+document.getElementById('navSlideTitle').textContent = CONFIG.slideTitle;
+document.getElementById('slideTitle').textContent    = CONFIG.slideTitle;
+document.getElementById('navCounter').textContent    = CONFIG.slideNumber + ' of ' + CONFIG.totalSlides;
+document.getElementById('videoFrame').src            = CONFIG.videoUrl;
+
+if (CONFIG.notes) {
+  document.getElementById('notesText').textContent = CONFIG.notes;
+  document.getElementById('notesBar').style.display = 'flex';
+}
+
+document.getElementById('btnPrev').disabled = !CONFIG.prevPage;
+document.getElementById('btnNext').disabled = !CONFIG.nextPage;
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+function goPage(dir) {
+  const target = dir === 'prev' ? CONFIG.prevPage : CONFIG.nextPage;
+  if (target) window.location.href = target;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') goPage('next');
+  if (e.key === 'ArrowLeft')  goPage('prev');
+});
+</script>
+
+</body>
+</html>
