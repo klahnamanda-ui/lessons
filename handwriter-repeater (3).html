@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handwriter Repeater – Maths Hive</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Fredoka+One&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #fff9f0 0%, #fff3e0 100%);
+      font-family: 'Nunito', sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 8px 40px;
+      user-select: none;
+    }
+
+    /* ── Eraser cursor (fixed, pointer-events off) ─────────── */
+    #eraserCursor {
+      position: fixed; pointer-events: none; z-index: 9999; display: none;
+      width: 120px; height: 80px;
+      transform: translate(-60px, -40px);
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .header { text-align: center; margin-bottom: 22px; }
+    .title-badge {
+      display: inline-flex; align-items: center; gap: 12px;
+      background: #ff6b35; border-radius: 20px; padding: 10px 28px;
+      box-shadow: 0 4px 0 #c94e1f; margin-bottom: 6px;
+    }
+    .title-badge .icon  { font-size: 24px; }
+    .title-badge .title {
+      font-family: 'Fredoka One', cursive;
+      font-size: 24px; color: white; letter-spacing: 1px;
+    }
+    .subtitle { color: #888; font-size: 13px; font-weight: 700; }
+
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: white; border-radius: 24px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.10);
+      padding: 20px; width: 100%; max-width: 1600px;
+      border: 2px solid #ffe0cc;
+    }
+
+    /* ── Two-panel layout ────────────────────────────────────── */
+    .panels {
+      display: flex;
+      align-items: stretch;
+      gap: 20px;
+    }
+
+    /* Left: teacher panel — fixed portrait, never changes size */
+    .draw-panel {
+      flex: 0 0 300px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Right: student panel — fills all remaining space */
+    .repeat-panel {
+      flex: 1 1 0;
+      min-width: 0;
+      display: none;
+      flex-direction: column;
+    }
+    .repeat-panel.visible { display: flex; }
+
+    /* ── Section labels ──────────────────────────────────────── */
+    .section-label {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .step-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: #ffc107; display: flex; align-items: center; justify-content: center;
+      font-family: 'Fredoka One', cursive; font-size: 14px;
+      color: white; box-shadow: 0 3px 0 #e6a800; flex-shrink: 0;
+    }
+    .section-label span { font-weight: 700; font-size: 15px; color: #444; }
+
+    /* ── Teacher whiteboard ──────────────────────────────────── */
+    .canvas-wrap { display: flex; justify-content: center; }
+
+    .wb-frame {
+      position: relative; background: #3a3a3a;
+      border-radius: 14px; padding: 10px;
+      box-shadow: inset 0 2px 6px rgba(255,255,255,0.15),
+        0 6px 24px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.3);
+      display: inline-flex; flex-direction: column;
+    }
+    .wb-frame::before {
+      content: ''; position: absolute; inset: 0; border-radius: 14px;
+      background: linear-gradient(135deg,
+        rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.02) 50%, rgba(0,0,0,0.05) 100%);
+      pointer-events: none;
+    }
+    .wb-surface {
+      background: #f8f9fa; border-radius: 6px;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+
+    #drawCanvas {
+      display: block; touch-action: none;
+      width: 280px; height: 400px;
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Ccircle cx='6' cy='6' r='4' fill='black'/%3E%3C/svg%3E") 6 6, auto;
+    }
+
+    /* ── Controls ────────────────────────────────────────────── */
+    .controls {
+      display: flex; flex-direction: column; align-items: flex-start;
+      gap: 8px; margin-top: 10px;
+    }
+
+    .btn-row { display: flex; gap: 6px; width: 100%; }
+
+    .ghost-btn {
+      flex: 1;
+      background: none; border: 2px solid #ddd; border-radius: 10px;
+      padding: 6px 12px; cursor: pointer; color: #aaa;
+      font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12px;
+      transition: all 0.15s;
+    }
+    .ghost-btn:hover { border-color: #ff6b35; color: #ff6b35; }
+
+    .speed-wrap { display: flex; align-items: center; gap: 7px; }
+    .speed-wrap label { font-size: 13px; font-weight: 700; color: #888; }
+    .speed-wrap input[type=range] { width: 90px; accent-color: #ff6b35; cursor: pointer; }
+    .speed-wrap .spv { font-size: 13px; color: #ff6b35; font-weight: 900; min-width: 14px; }
+
+    .rows-toggle {
+      display: flex; align-items: center;
+      border: 2px solid #ddd; border-radius: 10px; overflow: hidden;
+      width: 100%;
+    }
+    .rows-toggle input[type=radio] { display: none; }
+    .rows-toggle label {
+      flex: 1; padding: 6px 0; text-align: center;
+      font-size: 12px; font-weight: 700; color: #aaa;
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .rows-toggle input[type=radio]:checked + label { background: #ff6b35; color: white; }
+    .rows-toggle .divider { width: 1px; background: #ddd; align-self: stretch; }
+
+    #repeatBtn {
+      width: 100%; border: none; border-radius: 14px; padding: 10px 0;
+      background: #e0e0e0; color: #aaa;
+      font-family: 'Fredoka One', cursive; font-size: 18px; letter-spacing: 1px;
+      cursor: not-allowed; box-shadow: 0 4px 0 #bbb;
+      transition: background 0.15s, color 0.15s, box-shadow 0.1s, transform 0.1s;
+    }
+    #repeatBtn.active { background: #ff6b35; color: white; box-shadow: 0 5px 0 #c94e1f; cursor: pointer; }
+    #repeatBtn.active:hover  { background: #e85d27; }
+    #repeatBtn.active:active { transform: translateY(3px); box-shadow: 0 2px 0 #c94e1f; }
+
+    /* ── Student board header ────────────────────────────────── */
+    .output-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; gap: 8px;
+    }
+
+    #pauseBtn {
+      background: #ffc107; color: white; border: none;
+      border-radius: 12px; padding: 8px 22px;
+      font-family: 'Fredoka One', cursive; font-size: 17px; letter-spacing: 0.5px;
+      cursor: pointer; box-shadow: 0 4px 0 #e6a800;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.1s;
+    }
+    #pauseBtn:hover  { background: #e6a800; }
+    #pauseBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #e6a800; }
+    #pauseBtn.paused { background: #4caf50; box-shadow: 0 4px 0 #388e3c; }
+    #pauseBtn.paused:hover { background: #388e3c; }
+
+    /* ── Student whiteboard ──────────────────────────────────── */
+    .big-wb {
+      width: 100%; aspect-ratio: 3 / 2;
+      background: #3a3a3a; border-radius: 16px; padding: 10px 12px;
+      box-shadow: inset 0 2px 8px rgba(255,255,255,0.12),
+        0 8px 28px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.3);
+      position: relative; overflow: hidden;
+      display: flex; align-items: stretch;
+    }
+    .big-wb::before {
+      content: ''; position: absolute; inset: 0; border-radius: 16px;
+      background: linear-gradient(135deg,
+        rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 50%, rgba(0,0,0,0.04) 100%);
+      pointer-events: none; z-index: 1;
+    }
+
+    #repeatCanvas {
+      display: block; width: 100%; height: 100%;
+      background: #f8f9fa; border-radius: 6px;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.12);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Eraser cursor SVG — blue bone-shaped sponge eraser -->
+<svg id="eraserCursor" viewBox="0 0 72 48" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="36" cy="43" rx="28" ry="4" fill="rgba(0,0,0,0.18)"/>
+  <rect x="8" y="28" width="56" height="12" rx="5" fill="#222"/>
+  <path d="M14,8 Q8,8 8,16 Q8,30 14,30 L58,30 Q64,30 64,16 Q64,8 58,8 Z" fill="#1565c0"/>
+  <ellipse cx="14" cy="19" rx="9" ry="13" fill="#1e88e5"/>
+  <ellipse cx="58" cy="19" rx="9" ry="13" fill="#1e88e5"/>
+  <ellipse cx="36" cy="13" rx="18" ry="6" fill="rgba(255,255,255,0.18)"/>
+  <circle cx="28" cy="18" r="1.5" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="36" cy="15" r="1.5" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="44" cy="20" r="1.5" fill="rgba(255,255,255,0.12)"/>
+  <circle cx="32" cy="22" r="1.2" fill="rgba(255,255,255,0.10)"/>
+  <circle cx="40" cy="12" r="1.2" fill="rgba(255,255,255,0.10)"/>
+</svg>
+
+<div class="card">
+  <div class="panels">
+
+    <!-- ① Teacher draws here -->
+    <div class="draw-panel">
+      <div class="section-label">
+        <div class="step-num">1</div>
+        <span>Watch me</span>
+      </div>
+      <div class="canvas-wrap">
+        <div class="wb-frame">
+          <div class="wb-surface">
+            <canvas id="drawCanvas" width="560" height="800"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="btn-row">
+          <button class="ghost-btn" id="undoBtn">↩ Undo</button>
+          <button class="ghost-btn" id="clearBtn">🗑 Clear</button>
+        </div>
+        <div class="speed-wrap">
+          <label for="speedSlider">✏️ Speed</label>
+          <input type="range" id="speedSlider" min="1" max="5" value="2" step="1" />
+          <span class="spv" id="speedLabel">2</span>
+        </div>
+        <div class="rows-toggle">
+          <input type="radio" name="rows" id="rows1" value="1" />
+          <label for="rows1">1 Row</label>
+          <div class="divider"></div>
+          <input type="radio" name="rows" id="rows2" value="2" checked />
+          <label for="rows2">2 Rows</label>
+          <div class="divider"></div>
+          <input type="radio" name="rows" id="rows3" value="3" />
+          <label for="rows3">3 Rows</label>
+        </div>
+        <button id="repeatBtn">🔁 Repeat!</button>
+      </div>
+    </div>
+
+    <!-- ② Student repeat board -->
+    <div class="repeat-panel" id="repeatPanel">
+      <div class="output-header">
+        <div class="section-label" style="margin-bottom:0">
+          <div class="step-num">2</div>
+          <span>Your turn!</span>
+        </div>
+        <button id="pauseBtn">⏸ Pause</button>
+      </div>
+      <div class="big-wb">
+        <canvas id="repeatCanvas"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── Element references ────────────────────────────────────
+  const canvas        = document.getElementById('drawCanvas');
+  const ctx           = canvas.getContext('2d');
+  const repeatCanvas  = document.getElementById('repeatCanvas');
+  const repeatBtn     = document.getElementById('repeatBtn');
+  const clearBtn      = document.getElementById('clearBtn');
+  const undoBtn       = document.getElementById('undoBtn');
+  const speedSlider   = document.getElementById('speedSlider');
+  const speedLabel    = document.getElementById('speedLabel');
+  const eraserCursor  = document.getElementById('eraserCursor');
+  const pauseBtn      = document.getElementById('pauseBtn');
+  const outputSection = document.getElementById('repeatPanel');
+
+  // ── Eraser cursor follows the mouse ───────────────────────
+  document.addEventListener('mousemove', e => {
+    eraserCursor.style.left = e.clientX + 'px';
+    eraserCursor.style.top  = e.clientY + 'px';
+  });
+
+  // ── Speed slider label ─────────────────────────────────────
+  speedSlider.addEventListener('input', () => {
+    speedLabel.textContent = speedSlider.value;
+  });
+
+  // ── Drawing state ──────────────────────────────────────────
+  let isDrawing  = false;
+  let hasDrawing = false;
+  let strokes    = [];
+  let curStroke  = [];
+  let snapshots  = [[]];
+
+  function getPos(e) {
+    const r  = canvas.getBoundingClientRect();
+    const sx = canvas.width  / r.width;
+    const sy = canvas.height / r.height;
+    const s  = e.touches ? e.touches[0] : e;
+    return { x: (s.clientX - r.left) * sx, y: (s.clientY - r.top) * sy };
+  }
+
+  function drawSegment(c, x0, y0, x1, y1, lw) {
+    c.beginPath();
+    c.strokeStyle = '#1a1a2e'; c.lineWidth = lw;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+  }
+
+  function drawDot(c, x, y, lw) {
+    c.beginPath();
+    c.arc(x, y, lw / 2, 0, Math.PI * 2);
+    c.fillStyle = '#1a1a2e'; c.fill();
+  }
+
+  function redrawAll() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const stroke of strokes) {
+      if (!stroke.length) continue;
+      if (stroke.length === 1) { drawDot(ctx, stroke[0].x, stroke[0].y, 10); continue; }
+      for (let i = 1; i < stroke.length; i++)
+        drawSegment(ctx, stroke[i-1].x, stroke[i-1].y, stroke[i].x, stroke[i].y, 10);
+    }
+  }
+
+  function startDraw(e) {
+    e.preventDefault();
+    isDrawing = true;
+    const p = getPos(e);
+    curStroke = [p];
+    drawDot(ctx, p.x, p.y, 10);
+    if (!hasDrawing) {
+      hasDrawing = true;
+      repeatBtn.classList.add('active');
+    }
+  }
+
+  function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const p  = getPos(e);
+    const pr = curStroke[curStroke.length - 1];
+    curStroke.push(p);
+    drawSegment(ctx, pr.x, pr.y, p.x, p.y, 10);
+  }
+
+  function stopDraw() {
+    if (!isDrawing) return;
+    isDrawing = false;
+    if (curStroke.length) {
+      strokes.push([...curStroke]);
+      snapshots.push(strokes.map(s => [...s]));
+      curStroke = [];
+    }
+  }
+
+  canvas.addEventListener('mousedown',  startDraw);
+  canvas.addEventListener('mousemove',  draw);
+  canvas.addEventListener('mouseup',    stopDraw);
+  canvas.addEventListener('mouseleave', stopDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove',  draw,      { passive: false });
+  canvas.addEventListener('touchend',   stopDraw);
+
+  // ── Undo ───────────────────────────────────────────────────
+  undoBtn.addEventListener('click', () => {
+    if (snapshots.length <= 1) return;
+    snapshots.pop();
+    strokes = snapshots[snapshots.length - 1].map(s => [...s]);
+    redrawAll();
+    if (!strokes.length) {
+      hasDrawing = false;
+      repeatBtn.classList.remove('active');
+      stopAnimation();
+      outputSection.classList.remove('visible');
+    }
+  });
+
+  // ── Clear ──────────────────────────────────────────────────
+  clearBtn.addEventListener('click', () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    strokes = []; snapshots = [[]]; curStroke = [];
+    hasDrawing = false;
+    repeatBtn.classList.remove('active');
+    stopAnimation();
+    outputSection.classList.remove('visible');
+  });
+
+  // ── Animation engine ───────────────────────────────────────
+  const PPF = [0.3, 0.7, 1.5, 4, 10]; // points-per-frame per speed level 1–5
+
+  let animRunning = false;
+  let animPaused  = false;
+  let animRAF     = null;
+  let animAccum   = 0;
+  let animCopies  = [];
+  let animCopyIdx = 0;
+  let animCmdIdx  = 0;
+  let numRows     = 1;
+  let rc          = null;
+  let totalW      = 0;
+  let totalH      = 0;
+  let CELL_W      = 0;
+  let CELL_H      = 0;
+  const GAP       = 16;
+  const PAD       = 10;
+
+  function stopAnimation() {
+    animRunning = false;
+    animPaused  = false;
+    if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; }
+    pauseBtn.textContent = '⏸ Pause';
+    pauseBtn.classList.remove('paused');
+  }
+
+  // Build draw commands for one copy, scaled and offset into position
+  function buildCmds(offsetX, offsetY, scaleX, scaleY) {
+    scaleX = scaleX || 1;
+    scaleY = scaleY || 1;
+    const cmds = [];
+    for (const stroke of strokes) {
+      if (!stroke.length) continue;
+      if (stroke.length === 1) {
+        cmds.push({ t: 'dot',
+          x: stroke[0].x * scaleX + offsetX,
+          y: stroke[0].y * scaleY + offsetY });
+      } else {
+        for (let i = 1; i < stroke.length; i++) {
+          cmds.push({ t: 'seg',
+            x0: stroke[i-1].x * scaleX + offsetX,
+            y0: stroke[i-1].y * scaleY + offsetY,
+            x1: stroke[i].x   * scaleX + offsetX,
+            y1: stroke[i].y   * scaleY + offsetY });
+        }
+      }
+    }
+    return cmds;
+  }
+
+  function animFrame() {
+    if (!animRunning || animPaused) return;
+
+    const ppf = PPF[parseFloat(speedSlider.value) - 1];
+    animAccum += ppf;
+
+    while (animAccum >= 1) {
+      animAccum -= 1;
+
+      if (animCopyIdx >= animCopies.length) {
+        animRunning = false;
+        setTimeout(() => { if (!animPaused) eraseAndRestart(); }, 900);
+        return;
+      }
+
+      const copy = animCopies[animCopyIdx];
+      const cmd  = copy.cmds[animCmdIdx];
+      const lw   = 10 * (CELL_W / canvas.width);
+
+      if (cmd.t === 'dot') drawDot(rc, cmd.x, cmd.y, lw);
+      else drawSegment(rc, cmd.x0, cmd.y0, cmd.x1, cmd.y1, lw);
+
+      animCmdIdx++;
+      if (animCmdIdx >= copy.cmds.length) {
+        animCopyIdx++;
+        animCmdIdx = 0;
+      }
+    }
+
+    animRAF = requestAnimationFrame(animFrame);
+  }
+
+  // ── Eraser wipe animation ──────────────────────────────────
+  function eraseAndRestart() {
+    const snapshot    = rc.getImageData(0, 0, totalW, totalH);
+    const rcRect      = repeatCanvas.getBoundingClientRect();
+    const WIPE_DURATION = 2200;
+    const ERASER_W    = 80;
+    const SCRUB_FREQ  = 3.5;
+    const start       = performance.now();
+
+    eraserCursor.style.display = 'block';
+
+    function wipeFrame(now) {
+      if (animPaused) { requestAnimationFrame(wipeFrame); return; }
+
+      const progress = Math.min((now - start) / WIPE_DURATION, 1);
+
+      rc.putImageData(snapshot, 0, 0);
+
+      // Eraser sweeps left → right, scrubs top ↕ bottom
+      const eraserCX  = progress * (totalW + ERASER_W) - ERASER_W / 2;
+      const SCRUB_AMP = (totalH / 2) - 10;
+      const eraserCY  = totalH / 2 + Math.sin(progress * SCRUB_FREQ * Math.PI * 2) * SCRUB_AMP;
+
+      // Hard clear behind eraser
+      rc.fillStyle = '#f8f9fa';
+      rc.fillRect(0, 0, Math.max(0, eraserCX - ERASER_W * 0.6), totalH);
+
+      // Smear gradient ahead of eraser
+      const grad = rc.createLinearGradient(eraserCX - ERASER_W * 0.5, 0, eraserCX + ERASER_W * 0.6, 0);
+      grad.addColorStop(0,    'rgba(248,249,250,1)');
+      grad.addColorStop(0.55, 'rgba(248,249,250,0.85)');
+      grad.addColorStop(0.85, 'rgba(248,249,250,0.3)');
+      grad.addColorStop(1,    'rgba(248,249,250,0)');
+      rc.save();
+      rc.fillStyle = grad;
+      rc.fillRect(Math.max(0, eraserCX - ERASER_W * 0.5), 0, ERASER_W * 1.1, totalH);
+      rc.restore();
+
+      // Move eraser SVG to match canvas position on screen
+      const screenX = rcRect.left + (eraserCX / totalW) * rcRect.width;
+      const screenY = rcRect.top  + (eraserCY / totalH) * rcRect.height;
+      eraserCursor.style.left = screenX + 'px';
+      eraserCursor.style.top  = screenY + 'px';
+      const tilt = Math.cos(progress * SCRUB_FREQ * Math.PI * 2) * 12;
+      eraserCursor.style.transform = `translate(-60px, -40px) rotate(${tilt}deg)`;
+
+      if (progress < 1) {
+        requestAnimationFrame(wipeFrame);
+      } else {
+        rc.fillStyle = '#f8f9fa';
+        rc.fillRect(0, 0, totalW, totalH);
+        eraserCursor.style.display = 'none';
+        eraserCursor.style.transform = 'translate(-60px, -40px)';
+        animCopyIdx = 0; animCmdIdx = 0; animAccum = 0;
+        animRunning = true;
+        animRAF = requestAnimationFrame(animFrame);
+      }
+    }
+
+    requestAnimationFrame(wipeFrame);
+  }
+
+  // ── Pause / Resume ─────────────────────────────────────────
+  pauseBtn.addEventListener('click', () => {
+    if (!animRunning && !animPaused) return;
+    animPaused = !animPaused;
+    if (animPaused) {
+      pauseBtn.textContent = '▶ Resume';
+      pauseBtn.classList.add('paused');
+      if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; }
+    } else {
+      pauseBtn.textContent = '⏸ Pause';
+      pauseBtn.classList.remove('paused');
+      if (animRunning) animRAF = requestAnimationFrame(animFrame);
+      else eraseAndRestart();
+    }
+  });
+
+  // ── Repeat button ──────────────────────────────────────────
+  repeatBtn.addEventListener('click', () => {
+    if (!hasDrawing) return;
+
+    stopAnimation();
+
+    numRows = parseInt(document.querySelector('input[name="rows"]:checked').value);
+    const perRow     = 5;
+    const FIXED_ROWS = 3;
+
+    // Reveal the panel first so getBoundingClientRect returns real dimensions
+    outputSection.classList.add('visible');
+
+    // Size the canvas to fill the available panel width at strict 3:2 ratio
+    const availW         = outputSection.getBoundingClientRect().width;
+    const canvasDisplayW = availW - 24; // subtract big-wb horizontal padding (12px × 2)
+    const canvasDisplayH = Math.round(canvasDisplayW * 2 / 3);
+
+    // 2× intrinsic resolution for sharpness
+    const BOARD_W = canvasDisplayW * 2;
+    const BOARD_H = canvasDisplayH * 2;
+
+    CELL_H = (BOARD_H - PAD * 2 - GAP * (FIXED_ROWS - 1)) / FIXED_ROWS;
+    CELL_W = (BOARD_W - PAD * 2 - GAP * (perRow  - 1))    / perRow;
+    totalW = BOARD_W;
+    totalH = BOARD_H;
+
+    repeatCanvas.width  = totalW;
+    repeatCanvas.height = totalH;
+    repeatCanvas.style.width = repeatCanvas.style.height = '';
+
+    rc = repeatCanvas.getContext('2d');
+    rc.fillStyle = '#f8f9fa';
+    rc.fillRect(0, 0, totalW, totalH);
+
+    // Centre active rows vertically within the always-3-row board
+    const usedH  = CELL_H * numRows + GAP * (numRows - 1);
+    const startY = (totalH - usedH) / 2;
+
+    animCopies = [];
+    for (let i = 0; i < numRows * perRow; i++) {
+      const col     = i % perRow;
+      const row     = Math.floor(i / perRow);
+      animCopies.push({ cmds: buildCmds(
+        PAD + col * (CELL_W + GAP),
+        startY + row * (CELL_H + GAP),
+        CELL_W / canvas.width,
+        CELL_H / canvas.height
+      )});
+    }
+
+    animCopyIdx = 0; animCmdIdx = 0; animAccum = 0;
+    animRunning = true;
+    animRAF = requestAnimationFrame(animFrame);
+  });
+</script>
+</body>
+</html>
